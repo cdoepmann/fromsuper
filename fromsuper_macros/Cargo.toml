@@ -1,0 +1,21 @@
+[package]
+name = "fromsuper_macros"
+version = "0.1.0"
+edition = "2021"
+authors = ["Christoph Döpmann <dev@christoph.berlin>"]
+license = "MIT OR Apache-2.0"
+
+description = "Internal macros for the fromsuper crate"
+
+documentation = "https://docs.rs/fromsuper"
+homepage = "https://github.com/cdoepmann/fromsuper"
+repository = "https://github.com/cdoepmann/fromsuper"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = {version = "1.0", features=["extra-traits","parsing","printing"]}
+quote = "1.0"
+proc-macro2 = "1.0"
+darling = "0.14"

@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "fromsuper",
+    "fromsuper_macros"
+]
