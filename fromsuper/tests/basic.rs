@@ -10,7 +10,7 @@ struct Bar {
 #[from_super(from_type = "crate::Bar")]
 struct Foo {
     bar: u32,
-    #[from_super(no_unwrap = false)]
+    #[from_super(no_unpack = false)]
     baz: Option<String>,
 }
 

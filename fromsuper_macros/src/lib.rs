@@ -57,7 +57,7 @@ impl StructReceiver {
                 let field_ident = field.ident.as_ref().unwrap();
                 let span = field_ident.span();
 
-                if let Some(true) = field.no_unwrap {
+                if let Some(true) = field.no_unpack {
                     quote_spanned!(span=> #field_ident: other.#field_ident)
                 } else {
                     quote_spanned!(span=> #field_ident: other.#field_ident.unwrap())
@@ -72,7 +72,7 @@ impl StructReceiver {
                 let field_ident = field.ident.as_ref().unwrap();
                 let span = field_ident.span();
 
-                if let Some(true) = field.no_unwrap {
+                if let Some(true) = field.no_unpack {
                     quote!()
                 } else {
                     quote_spanned! {span=>
@@ -170,7 +170,7 @@ struct FieldReceiver {
     ty: syn::Type,
 
     /// Option to not unwrap or unpack this field.
-    no_unwrap: Option<bool>,
+    no_unpack: Option<bool>,
 }
 
 #[proc_macro_derive(FromSuper, attributes(from_super))]
