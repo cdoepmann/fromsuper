@@ -74,7 +74,7 @@ struct BarGenMulti<T, U> {
 
 #[derive(FromSuper)]
 #[from_super(from_type = "BarGenMulti<T,U>")]
-struct FooGenMulti<T, U> {
+struct FooGenMulti<T> {
     x: Vec<T>,
 }
 

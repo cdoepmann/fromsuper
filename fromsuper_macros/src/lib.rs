@@ -5,6 +5,8 @@ use syn::{parse_macro_input, DeriveInput, Type};
 
 use darling::{ast, FromDeriveInput, FromField};
 
+mod generics;
+
 /// The struct that contains all the info about the to-be-derived struct.
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(from_super), supports(struct_named))]
@@ -35,6 +37,12 @@ impl StructReceiver {
 
         // handle generics
         let (imp, ty, wher) = generics.split_for_impl();
+
+        // adapt generics of impl block to include type parameters used in the
+        // super struct but not in the sub struct
+        let extra_super_tyidents = generics::merge_generics(from_type, generics)?;
+        let new_generics = generics::set_types(generics, extra_super_tyidents);
+        let (new_imp, _, _) = new_generics.split_for_impl();
 
         let fields = data
             .as_ref()
@@ -89,13 +97,13 @@ impl StructReceiver {
 
         Ok(quote! {
             impl #imp #ident #ty #wher {
-                fn from_super_unwrap(other: #from_type) -> Self {
+                fn from_super_unwrap #new_imp (other: #from_type) -> Self {
                     Self {
                         #(#initializers),*
                     }
                 }
 
-                fn from_super_try_unwrap(other: #from_type) -> ::std::result::Result<Self,#error_type> {
+                fn from_super_try_unwrap #new_imp (other: #from_type) -> ::std::result::Result<Self,#error_type> {
                     let mut error = #error_type::new();
 
                     #(#unwrap_checkers)*
