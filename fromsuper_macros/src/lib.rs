@@ -23,8 +23,8 @@ struct StructReceiver {
     from_type: Type,
 }
 
-impl ToTokens for StructReceiver {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
+impl StructReceiver {
+    fn try_to_tokens(&self) -> Result<TokenStream, syn::Error> {
         // get references to all our struct members so we can use them directly in quote!(...)
         let StructReceiver {
             ref ident,
@@ -87,7 +87,7 @@ impl ToTokens for StructReceiver {
                 .collect::<String>()
         );
 
-        tokens.extend(quote! {
+        Ok(quote! {
             impl #imp #ident #ty #wher {
                 fn from_super_unwrap(other: #from_type) -> Self {
                     Self {
@@ -141,10 +141,10 @@ impl ToTokens for StructReceiver {
                     Ok(())
                 }
             }
-            
+
             impl ::std::error::Error for #error_type { }
-            
-        });
+
+        })
     }
 }
 
@@ -173,5 +173,8 @@ pub fn derive_fromsuper(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     // Parse it into our custom type using darling
     let struct_receiver = StructReceiver::from_derive_input(&parsed_raw).unwrap();
 
-    quote!(#struct_receiver).into()
+    struct_receiver
+        .try_to_tokens()
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
 }
