@@ -85,12 +85,13 @@ impl StructReceiver {
                 .map(|field| {
                     let field_ident = field.ident.as_ref().unwrap();
                     let span = field_ident.span();
+                    let source_ident = field.rename_from.as_ref().unwrap_or(field_ident);
 
                     if let Some(true) = field.no_unpack {
                         quote!()
                     } else {
                         quote_spanned! {span=>
-                            if value.#field_ident.is_none() {
+                            if value.#source_ident.is_none() {
                                 error.push(stringify!(#field_ident));
                             }
                         }
@@ -103,11 +104,12 @@ impl StructReceiver {
                 .map(|field| {
                     let field_ident = field.ident.as_ref().unwrap();
                     let span = field_ident.span();
+                    let source_ident = field.rename_from.as_ref().unwrap_or(field_ident);
 
                     if let Some(true) = field.no_unpack {
-                        quote_spanned!(span=> #field_ident: value.#field_ident)
+                        quote_spanned!(span=> #field_ident: value.#source_ident)
                     } else {
-                        quote_spanned!(span=> #field_ident: value.#field_ident.unwrap())
+                        quote_spanned!(span=> #field_ident: value.#source_ident.unwrap())
                     }
                 })
                 .collect::<Vec<_>>();
@@ -175,8 +177,9 @@ impl StructReceiver {
                 .map(|field| {
                     let field_ident = field.ident.as_ref().unwrap();
                     let span = field_ident.span();
+                    let source_ident = field.rename_from.as_ref().unwrap_or(field_ident);
 
-                    quote_spanned!(span=> #field_ident: value.#field_ident)
+                    quote_spanned!(span=> #field_ident: value.#source_ident)
                 })
                 .collect::<Vec<_>>();
 
@@ -208,6 +211,9 @@ struct FieldReceiver {
 
     /// Option to not unwrap or unpack this field.
     no_unpack: Option<bool>,
+
+    /// Option to take this field's value from a differently-named source field
+    rename_from: Option<syn::Ident>,
 }
 
 #[proc_macro_derive(FromSuper, attributes(from_super))]

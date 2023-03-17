@@ -112,3 +112,36 @@ fn test_generics_multi() {
     let foo = FooGenMulti::try_from(bar).unwrap();
     assert_eq!(foo.x[0], "abc")
 }
+
+#[derive(PartialEq, Debug)]
+struct BarRenameTest<T> {
+    x: Option<T>,
+    y: T,
+}
+
+#[derive(FromSuper, PartialEq, Debug)]
+#[from_super(from_type = "BarRenameTest<T>", unpack = true)]
+struct FooRenameTest1<T> {
+    #[from_super(rename_from = "x")]
+    z: T,
+}
+
+#[derive(FromSuper, PartialEq, Debug)]
+#[from_super(from_type = "BarRenameTest<T>")]
+struct FooRenameTest2<T> {
+    #[from_super(rename_from = "y")]
+    z: T,
+}
+
+#[test]
+fn test_rename_from() {
+    assert_eq!(
+        FooRenameTest1 { z: 42 },
+        BarRenameTest { x: Some(42), y: 53 }.try_into().unwrap()
+    );
+
+    assert_eq!(
+        FooRenameTest2 { z: 53 },
+        BarRenameTest { x: Some(42), y: 53 }.into()
+    );
+}
