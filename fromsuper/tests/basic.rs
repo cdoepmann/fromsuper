@@ -7,7 +7,7 @@ struct Bar {
 }
 
 #[derive(PartialEq, Eq, Debug, FromSuper)]
-#[from_super(from_type = "crate::Bar")]
+#[from_super(from_type = "crate::Bar", unpack = true)]
 struct Foo {
     bar: u32,
     #[from_super(no_unpack = false)]
@@ -18,14 +18,14 @@ struct Foo {
 fn basic_unwrap() {
     assert_eq!(
         Foo { bar: 42, baz: None },
-        Foo::from_super_try_unwrap(Bar {
+        Foo::try_from(Bar {
             bar: Some(42),
             baz: Some(None),
         })
         .unwrap()
     );
 
-    assert!(Foo::from_super_try_unwrap(Bar {
+    assert!(Foo::try_from(Bar {
         bar: Some(42),
         baz: None,
     })
@@ -34,13 +34,13 @@ fn basic_unwrap() {
 
 #[test]
 fn basic_try_unwrap() {
-    assert!(Foo::from_super_try_unwrap(Bar {
+    assert!(Foo::try_from(Bar {
         bar: Some(42),
         baz: None,
     })
     .is_err());
 
-    assert!(Foo::from_super_try_unwrap(Bar {
+    assert!(Foo::try_from(Bar {
         bar: Some(42),
         baz: Some(None),
     })
@@ -52,7 +52,7 @@ struct BarGen<T> {
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarGen<T>")]
+#[from_super(from_type = "BarGen<T>", unpack = true)]
 struct FooGen<T> {
     x: Vec<T>,
 }
@@ -63,17 +63,41 @@ fn test_generics_single() {
         x: Some(vec!["abc"]),
     };
 
-    let foo = FooGen::from_super_unwrap(bar);
+    let foo = FooGen::try_from(bar).unwrap();
+    assert_eq!(foo.x[0], "abc")
+}
+
+struct BarGenMultiNoUnpack<T, U> {
+    x: Vec<T>,
+    #[allow(dead_code)]
+    y: Vec<U>,
+}
+
+#[derive(FromSuper)]
+#[from_super(from_type = "BarGenMultiNoUnpack<T,U>")]
+struct FooGenMultiNoUnpack<T> {
+    x: Vec<T>,
+}
+
+#[test]
+fn test_generics_multi_no_unpack() {
+    let bar = BarGenMultiNoUnpack {
+        x: vec!["abc"],
+        y: vec![42],
+    };
+
+    let foo: FooGenMultiNoUnpack<_> = bar.into();
     assert_eq!(foo.x[0], "abc")
 }
 
 struct BarGenMulti<T, U> {
     x: Option<Vec<T>>,
+    #[allow(dead_code)]
     y: Vec<U>,
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarGenMulti<T,U>")]
+#[from_super(from_type = "BarGenMulti<T,U>", unpack = true)]
 struct FooGenMulti<T> {
     x: Vec<T>,
 }
@@ -85,6 +109,6 @@ fn test_generics_multi() {
         y: vec![42],
     };
 
-    let foo = FooGenMulti::from_super_unwrap(bar);
+    let foo = FooGenMulti::try_from(bar).unwrap();
     assert_eq!(foo.x[0], "abc")
 }

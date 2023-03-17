@@ -7,19 +7,19 @@ struct Bar {
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "Bar")]
+#[from_super(from_type = "Bar", unpack = true)]
 struct Foo {
     #[allow(dead_code)]
     x: Vec<u32>,
 }
 
 fn anyhow_convert_inner_1() -> anyhow::Result<Foo> {
-    let foo = Foo::from_super_try_unwrap(Bar { x: Some(vec![42]) })?;
+    let foo = Foo::try_from(Bar { x: Some(vec![42]) })?;
     Ok(foo)
 }
 
 fn anyhow_convert_inner_2() -> anyhow::Result<Foo> {
-    let foo = Foo::from_super_try_unwrap(Bar { x: None })?;
+    let foo = Foo::try_from(Bar { x: None })?;
     Ok(foo)
 }
 

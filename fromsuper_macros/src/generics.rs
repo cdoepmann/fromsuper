@@ -182,15 +182,12 @@ fn collect_all_generics_from_type_param(ty: &Type) -> Vec<Ident> {
     }
 }
 
-/// Given a Generics object, return a new one that has its type params replaced
-/// with the given ones.
-pub(crate) fn set_types(
+/// Given a Generics object, return a new one that has the given type params added to it.
+pub(crate) fn add_types(
     generics: &Generics,
     new_idents: impl IntoIterator<Item = Ident>,
 ) -> Generics {
     let mut generics = generics.clone();
-
-    generics.params.clear();
 
     for ident in new_idents {
         // eprintln!("adding type {}", &ident);

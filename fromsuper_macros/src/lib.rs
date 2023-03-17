@@ -23,6 +23,9 @@ struct StructReceiver {
 
     /// Option to specify the original (super) type to convert our derived type from.
     from_type: Type,
+
+    /// Option to specify whether to unpack the single struct members
+    unpack: Option<bool>,
 }
 
 impl StructReceiver {
@@ -33,16 +36,28 @@ impl StructReceiver {
             ref generics,
             ref data,
             ref from_type,
+            ref unpack,
         } = *self;
 
+        // whether to unpack any member
+        let unpack = unpack.unwrap_or(false);
+
         // handle generics
-        let (imp, ty, wher) = generics.split_for_impl();
+        let (_, ty, wher) = generics.split_for_impl();
 
         // adapt generics of impl block to include type parameters used in the
         // super struct but not in the sub struct
         let extra_super_tyidents = generics::merge_generics(from_type, generics)?;
-        let new_generics = generics::set_types(generics, extra_super_tyidents);
-        let (new_imp, _, _) = new_generics.split_for_impl();
+        let new_generics = generics::add_types(generics, extra_super_tyidents);
+        let (imp, _, _) = new_generics.split_for_impl();
+
+        // eprintln!("ident: {:?}", ident);
+        // eprintln!("generics: {:?}", generics);
+        // eprintln!("from_type: {:?}", from_type);
+        // eprintln!("imp: {:?}", imp);
+        // eprintln!("ty: {:?}", ty);
+        // eprintln!("wher: {:?}", wher);
+        // eprintln!("");
 
         let fields = data
             .as_ref()
@@ -50,109 +65,131 @@ impl StructReceiver {
             .expect("Should never be enum")
             .fields;
 
-        // format initializers for all fields
-        let initializers = fields
-            .iter()
-            .map(|field| {
-                let field_ident = field.ident.as_ref().unwrap();
-                let span = field_ident.span();
+        return Ok(if unpack {
+            // Implement TryFrom
 
-                if let Some(true) = field.no_unpack {
-                    quote_spanned!(span=> #field_ident: other.#field_ident)
-                } else {
-                    quote_spanned!(span=> #field_ident: other.#field_ident.unwrap())
+            let error_type = format_ident!(
+                "{}FromSuperError_{}",
+                ident,
+                from_type
+                    .to_token_stream()
+                    .to_string()
+                    .chars()
+                    .filter(|c| c.is_alphanumeric())
+                    .collect::<String>()
+            );
+
+            // code to check if unwrap will be successful
+            let unwrap_checkers = fields
+                .iter()
+                .map(|field| {
+                    let field_ident = field.ident.as_ref().unwrap();
+                    let span = field_ident.span();
+
+                    if let Some(true) = field.no_unpack {
+                        quote!()
+                    } else {
+                        quote_spanned! {span=>
+                            if value.#field_ident.is_none() {
+                                error.push(stringify!(#field_ident));
+                            }
+                        }
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let initializers = fields
+                .iter()
+                .map(|field| {
+                    let field_ident = field.ident.as_ref().unwrap();
+                    let span = field_ident.span();
+
+                    if let Some(true) = field.no_unpack {
+                        quote_spanned!(span=> #field_ident: value.#field_ident)
+                    } else {
+                        quote_spanned!(span=> #field_ident: value.#field_ident.unwrap())
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            quote!(
+                impl #imp ::std::convert::TryFrom<#from_type> for #ident #ty #wher {
+                    type Error = #error_type;
+
+                    fn try_from(value: #from_type) -> ::std::result::Result<Self, Self::Error> {
+                        let mut error = #error_type::new();
+
+                        #(#unwrap_checkers)*
+
+                        if (error.any_missing()) {
+                            return Err(error)
+                        }
+
+                        Ok( Self {
+                            #(#initializers),*
+                        } )
+                    }
                 }
-            })
-            .collect::<Vec<_>>();
 
-        // code to check if unwrap will be successful
-        let unwrap_checkers = fields
-            .iter()
-            .map(|field| {
-                let field_ident = field.ident.as_ref().unwrap();
-                let span = field_ident.span();
+                #[allow(non_camel_case_types)]
+                #[derive(PartialEq, Debug)]
+                struct #error_type {
+                    missing: Vec<&'static str>,
+                }
 
-                if let Some(true) = field.no_unpack {
-                    quote!()
-                } else {
-                    quote_spanned! {span=>
-                        if other.#field_ident.is_none() {
-                            error.push(stringify!(#field_ident));
+                impl #error_type {
+                    fn new() -> Self { Self { missing: Vec::new() }}
+
+                    fn push(&mut self, missing: &'static str) {
+                        self.missing.push(missing);
+                    }
+
+                    fn any_missing(&self) -> bool {
+                        self.missing.len() > 0
+                    }
+                }
+
+                impl ::std::fmt::Display for #error_type {
+                    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                        write!(f, "Attribute(s) ")?;
+
+                        for (i, missing) in self.missing.iter().enumerate() {
+                            write!(f, "{}", missing)?;
+                            if i+1 < self.missing.len() {
+                                write!(f, ", ")?;
+                            }
+                        }
+
+                        write!(f, " of the super struct {} not initialized", stringify!(#from_type))?;
+                        Ok(())
+                    }
+                }
+
+                impl ::std::error::Error for #error_type { }
+            )
+        } else {
+            // Implement From
+
+            let initializers = fields
+                .iter()
+                .map(|field| {
+                    let field_ident = field.ident.as_ref().unwrap();
+                    let span = field_ident.span();
+
+                    quote_spanned!(span=> #field_ident: value.#field_ident)
+                })
+                .collect::<Vec<_>>();
+
+            quote!(
+                impl #imp ::std::convert::From<#from_type> for #ident #ty #wher {
+                    fn from(value: #from_type) -> Self {
+                        Self {
+                            #(#initializers),*
                         }
                     }
                 }
-            })
-            .collect::<Vec<_>>();
-
-        let error_type = format_ident!(
-            "{}FromSuperError_{}",
-            ident,
-            from_type
-                .to_token_stream()
-                .to_string()
-                .chars()
-                .filter(|c| c.is_alphanumeric())
-                .collect::<String>()
-        );
-
-        Ok(quote! {
-            impl #imp #ident #ty #wher {
-                fn from_super_unwrap #new_imp (other: #from_type) -> Self {
-                    Self {
-                        #(#initializers),*
-                    }
-                }
-
-                fn from_super_try_unwrap #new_imp (other: #from_type) -> ::std::result::Result<Self,#error_type> {
-                    let mut error = #error_type::new();
-
-                    #(#unwrap_checkers)*
-
-                    if (error.any_missing()) {
-                        return Err(error)
-                    }
-
-                    Ok( Self::from_super_unwrap(other) )
-                }
-            }
-
-            #[allow(non_camel_case_types)]
-            #[derive(PartialEq, Debug)]
-            struct #error_type {
-                missing: Vec<&'static str>,
-            }
-
-            impl #error_type {
-                fn new() -> Self { Self { missing: Vec::new() }}
-
-                fn push(&mut self, missing: &'static str) {
-                    self.missing.push(missing);
-                }
-
-                fn any_missing(&self) -> bool {
-                    self.missing.len() > 0
-                }
-            }
-
-            impl ::std::fmt::Display for #error_type {
-                fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-                    write!(f, "Attribute(s) ")?;
-
-                    for (i, missing) in self.missing.iter().enumerate() {
-                        write!(f, "{}", missing)?;
-                        if i+1 < self.missing.len() {
-                            write!(f, ", ")?;
-                        }
-                    }
-
-                    write!(f, " of the super struct {} not initialized", stringify!(#from_type))?;
-                    Ok(())
-                }
-            }
-
-            impl ::std::error::Error for #error_type { }
-
-        })
+            )
+        });
     }
 }
 
