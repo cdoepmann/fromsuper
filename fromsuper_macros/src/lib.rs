@@ -222,7 +222,12 @@ pub fn derive_fromsuper(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let parsed_raw = parse_macro_input!(input as DeriveInput);
 
     // Parse it into our custom type using darling
-    let struct_receiver = StructReceiver::from_derive_input(&parsed_raw).unwrap();
+    let struct_receiver = match StructReceiver::from_derive_input(&parsed_raw) {
+        Ok(val) => val,
+        Err(err) => {
+            return err.write_errors().into();
+        }
+    };
 
     struct_receiver
         .try_to_tokens()
