@@ -74,7 +74,7 @@ struct BarGenMultiNoUnpack<T, U> {
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarGenMultiNoUnpack<T,U>")]
+#[from_super(from_type = "BarGenMultiNoUnpack<#T,#U>")]
 struct FooGenMultiNoUnpack<T> {
     x: Vec<T>,
 }
@@ -97,7 +97,7 @@ struct BarGenMulti<T, U> {
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarGenMulti<T,U>", unpack = true)]
+#[from_super(from_type = "BarGenMulti<#T,#U>", unpack = true)]
 struct FooGenMulti<T> {
     x: Vec<T>,
 }
@@ -144,4 +144,36 @@ fn test_rename_from() {
         FooRenameTest2 { z: 53 },
         BarRenameTest { x: Some(42), y: 53 }.into()
     );
+}
+
+#[derive(Debug, Clone)]
+struct BarGenericsMixed<T, U> {
+    x: Vec<T>,
+    y: Vec<U>,
+}
+
+#[derive(FromSuper)]
+#[from_super(from_type = "BarGenericsMixed<#T,u32>")]
+struct FooGenericsMixed<T> {
+    x: Vec<T>,
+}
+
+#[derive(FromSuper)]
+#[from_super(from_type = "BarGenericsMixed<#T,u32>")]
+struct FooGenericsMixed2 {
+    y: Vec<u32>,
+}
+
+#[test]
+fn test_generics_mixed_free_and_specific() {
+    let bar = BarGenericsMixed {
+        x: vec!["huhu"],
+        y: vec![42],
+    };
+
+    let foo: FooGenericsMixed<_> = bar.clone().into();
+    assert_eq!(foo.x[0], "huhu");
+
+    let foo: FooGenericsMixed2 = bar.into();
+    assert_eq!(foo.y[0], 42);
 }

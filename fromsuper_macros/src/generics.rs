@@ -189,8 +189,19 @@ pub(crate) fn add_types(
 ) -> Generics {
     let mut generics = generics.clone();
 
-    for ident in new_idents {
+    'outer: for ident in new_idents {
         // eprintln!("adding type {}", &ident);
+
+        // avoid adding a duplicate
+        for param in generics.params.iter() {
+            if let syn::GenericParam::Type(type_param) = param {
+                if type_param.ident == ident {
+                    // do not add this type parameter a second time
+                    continue 'outer;
+                }
+            }
+        }
+
         generics.params.push(syn::GenericParam::Type(ident.into()));
     }
 

@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use syn::{parse_macro_input, DeriveInput, Type};
 
-use darling::{ast, FromDeriveInput, FromField};
+use darling::{ast, FromDeriveInput, FromField, FromMeta};
 
 mod generics;
 
@@ -22,7 +22,7 @@ struct StructReceiver {
     data: ast::Data<(), FieldReceiver>,
 
     /// Option to specify the original (super) type to convert our derived type from.
-    from_type: Type,
+    from_type: TypeWithParams,
 
     /// Option to specify whether to unpack the single struct members
     unpack: Option<bool>,
@@ -39,6 +39,9 @@ impl StructReceiver {
             ref unpack,
         } = *self;
 
+        let from_type_params = &from_type.params;
+        let from_type = &from_type.ty;
+
         // whether to unpack any member
         let unpack = unpack.unwrap_or(false);
 
@@ -48,7 +51,7 @@ impl StructReceiver {
         // adapt generics of impl block to include type parameters used in the
         // super struct but not in the sub struct
         let extra_super_tyidents = generics::merge_generics(from_type, generics)?;
-        let new_generics = generics::add_types(generics, extra_super_tyidents);
+        let new_generics = generics::add_types(generics, from_type_params.clone());
         let (imp, _, _) = new_generics.split_for_impl();
 
         // eprintln!("ident: {:?}", ident);
@@ -214,6 +217,62 @@ struct FieldReceiver {
 
     /// Option to take this field's value from a differently-named source field
     rename_from: Option<syn::Ident>,
+}
+
+/// A custom `Type` wrapper that additionally holds which contained generic types
+/// should be regarded as "free" parameters, not specialized yet.
+///
+/// It can be parsed from input by prepending argument types with a `#`. For
+/// example, in `Bar<#T, u32>`, T is a free parameter, but u32 isn't.
+#[derive(Debug)]
+struct TypeWithParams {
+    ty: Type,
+    params: Vec<syn::Ident>,
+}
+
+/// Find types specified as free arguments, and remove the preceding `#` signs.
+fn parse_hashmark_types(s: &str) -> darling::Result<(Vec<syn::Ident>, String)> {
+    let mut s = s;
+    let mut new_s = String::new();
+    let mut params: Vec<syn::Ident> = Vec::new();
+
+    while s.len() > 0 {
+        match s.find('#') {
+            None => {
+                new_s.push_str(s);
+                break;
+            }
+            Some(i) => {
+                // get type name after hash sign
+                let ident: String = s[i..]
+                    .chars()
+                    .skip(1)
+                    .take_while(char::is_ascii_alphanumeric)
+                    .collect();
+                if ident.len() == 0 {
+                    return Err(darling::Error::custom(
+                        "hash mark without following type parameter name",
+                    ));
+                }
+
+                params.push(syn::Ident::new(&ident, proc_macro2::Span::call_site()));
+                new_s.push_str(&s[..i]);
+                s = &s[i + 1..];
+            }
+        }
+    }
+
+    Ok((params, new_s))
+}
+
+impl FromMeta for TypeWithParams {
+    fn from_string(value: &str) -> darling::Result<Self> {
+        let (params, value) = parse_hashmark_types(value)?;
+
+        let ty: Type = syn::parse_str(&value).map_err(|_| darling::Error::unknown_value(&value))?;
+
+        Ok(TypeWithParams { params, ty })
+    }
 }
 
 #[proc_macro_derive(FromSuper, attributes(from_super))]
