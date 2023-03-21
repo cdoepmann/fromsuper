@@ -1,5 +1,8 @@
 use fromsuper::FromSuper;
 
+use std::collections::HashMap;
+use std::rc::Rc;
+
 #[derive(Clone)]
 struct Bar {
     bar: Option<u32>,
@@ -207,4 +210,80 @@ fn test_lifetime() {
 
     let foo: FooLifetime2 = bar2.clone().into();
     assert_eq!(53, foo.x);
+}
+
+#[derive(Debug, Clone)]
+struct BarComplex<'a, T: 'static, U, V, W> {
+    a: u32,
+    b: Option<&'a str>,
+    c: Option<&'static T>,
+    d: HashMap<U, V>,
+    e: Option<(U, W)>,
+}
+
+#[derive(Debug, Clone)]
+struct ComplexSub {
+    x: String,
+    y: Rc<u64>,
+}
+
+static COMPLEX_C: i16 = -42;
+
+#[derive(FromSuper)]
+#[from_super(from_type = "BarComplex<'a, #T, #U, #V, #W>")]
+struct FooComplex1 {}
+
+#[derive(FromSuper)]
+#[from_super(from_type = "BarComplex<'a, #T, u8, char, #W>", unpack = "true")]
+struct FooComplex2<'a, T: 'static> {
+    b: &'a str,
+    c: &'static T,
+    #[from_super(no_unpack)]
+    d: HashMap<u8, char>,
+}
+
+#[derive(FromSuper)]
+#[from_super(
+    from_type = "BarComplex<'a, #T, #U, char, ComplexSub>",
+    unpack = "true"
+)]
+#[derive(Debug)]
+struct FooComplex3<U> {
+    #[from_super(no_unpack)]
+    a: u32,
+    #[from_super(no_unpack)]
+    d: HashMap<U, char>,
+    e: (U, ComplexSub),
+}
+
+#[test]
+fn test_complex() {
+    let s = format!("Test {}", 123);
+    let bar = BarComplex {
+        a: 42,
+        b: Some(&s[2..]),
+        c: Some(&COMPLEX_C),
+        d: ([(1u8, 'a'), (2, 'b')]).into_iter().collect(),
+        e: Some((
+            16u8,
+            ComplexSub {
+                x: "hi there".to_string(),
+                y: Rc::new(1_000_000_000_000),
+            },
+        )),
+    };
+
+    let _: FooComplex1 = bar.clone().into();
+
+    let foo: FooComplex2<_> = bar.clone().try_into().unwrap();
+    assert_eq!(foo.b, "st 123");
+    assert_eq!(*foo.c, -42);
+    assert_eq!(foo.d[&2], 'b');
+
+    let foo: FooComplex3<_> = bar.clone().try_into().unwrap();
+    assert_eq!(foo.a, 42);
+    assert_eq!(foo.d[&2], 'b');
+    assert_eq!(foo.e.0, 16);
+    assert_eq!(foo.e.1.x, "hi there");
+    assert_eq!(*foo.e.1.y, 1_000_000_000_000);
 }
