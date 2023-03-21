@@ -48,8 +48,8 @@ struct Foo {
     c: HashSet<u64>,
 }
 
-let bar = Bar { ... }
-let foo: Foo = bar.into() // using Foo's derived implementation of From<Bar>
+let bar = Bar { ... };
+let foo: Foo = bar.into(); // using Foo's derived implementation of From<Bar>
 ```
 
 If a sub struct's field is not named the same as the original one,
@@ -92,8 +92,8 @@ struct Foo {
     d: ComplexData,
 }
 
-let bar = Bar { ... }
-let foo: Foo = bar.try_into()? // using Foo's derived implementation of TryFrom<Bar>
+let bar = Bar { ... };
+let foo: Foo = bar.try_into()?; // using Foo's derived implementation of TryFrom<Bar>
 ```
 
 ## Generics
