@@ -9,7 +9,7 @@ mod generics;
 
 /// The struct that contains all the info about the to-be-derived struct.
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(from_super), supports(struct_named))]
+#[darling(attributes(fromsuper), supports(struct_named))]
 struct StructReceiver {
     /// The struct ident
     ident: syn::Ident,
@@ -202,7 +202,7 @@ impl StructReceiver {
 
 /// The handler for each field within the provided struct
 #[derive(Debug, FromField)]
-#[darling(attributes(from_super))]
+#[darling(attributes(fromsuper))]
 struct FieldReceiver {
     /// Get the ident of the field. This is an Option to accommodate tuples or
     /// tuple structs (`None` in this case). However, this cannot happen in our
@@ -276,7 +276,7 @@ impl FromMeta for TypeWithParams {
     }
 }
 
-#[proc_macro_derive(FromSuper, attributes(from_super))]
+#[proc_macro_derive(FromSuper, attributes(fromsuper))]
 pub fn derive_fromsuper(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // load the struct's raw AST
     let parsed_raw = parse_macro_input!(input as DeriveInput);

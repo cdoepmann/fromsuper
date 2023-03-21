@@ -7,7 +7,7 @@ struct Bar {
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "Bar", unpack = true)]
+#[fromsuper(from_type = "Bar", unpack = true)]
 struct Foo {
     #[allow(dead_code)]
     x: Vec<u32>,

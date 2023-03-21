@@ -10,10 +10,10 @@ struct Bar {
 }
 
 #[derive(PartialEq, Eq, Debug, FromSuper)]
-#[from_super(from_type = "crate::Bar", unpack = true)]
+#[fromsuper(from_type = "crate::Bar", unpack = true)]
 struct Foo {
     bar: u32,
-    #[from_super(no_unpack = false)]
+    #[fromsuper(no_unpack = false)]
     baz: Option<String>,
 }
 
@@ -55,7 +55,7 @@ struct BarGen<T> {
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarGen<T>", unpack = true)]
+#[fromsuper(from_type = "BarGen<T>", unpack = true)]
 struct FooGen<T> {
     x: Vec<T>,
 }
@@ -77,7 +77,7 @@ struct BarGenMultiNoUnpack<T, U> {
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarGenMultiNoUnpack<#T,#U>")]
+#[fromsuper(from_type = "BarGenMultiNoUnpack<#T,#U>")]
 struct FooGenMultiNoUnpack<T> {
     x: Vec<T>,
 }
@@ -100,7 +100,7 @@ struct BarGenMulti<T, U> {
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarGenMulti<#T,#U>", unpack = true)]
+#[fromsuper(from_type = "BarGenMulti<#T,#U>", unpack = true)]
 struct FooGenMulti<T> {
     x: Vec<T>,
 }
@@ -123,16 +123,16 @@ struct BarRenameTest<T> {
 }
 
 #[derive(FromSuper, PartialEq, Debug)]
-#[from_super(from_type = "BarRenameTest<T>", unpack = true)]
+#[fromsuper(from_type = "BarRenameTest<T>", unpack = true)]
 struct FooRenameTest1<T> {
-    #[from_super(rename_from = "x")]
+    #[fromsuper(rename_from = "x")]
     z: T,
 }
 
 #[derive(FromSuper, PartialEq, Debug)]
-#[from_super(from_type = "BarRenameTest<T>")]
+#[fromsuper(from_type = "BarRenameTest<T>")]
 struct FooRenameTest2<T> {
-    #[from_super(rename_from = "y")]
+    #[fromsuper(rename_from = "y")]
     z: T,
 }
 
@@ -156,13 +156,13 @@ struct BarGenericsMixed<T, U> {
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarGenericsMixed<#T,u32>")]
+#[fromsuper(from_type = "BarGenericsMixed<#T,u32>")]
 struct FooGenericsMixed<T> {
     x: Vec<T>,
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarGenericsMixed<#T,u32>")]
+#[fromsuper(from_type = "BarGenericsMixed<#T,u32>")]
 struct FooGenericsMixed2 {
     y: Vec<u32>,
 }
@@ -188,13 +188,13 @@ struct BarLifetime1<'a> {
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarLifetime1<'a>")]
+#[fromsuper(from_type = "BarLifetime1<'a>")]
 struct FooLifetime1<'a> {
     y: &'a str,
 }
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarLifetime1<'static>")]
+#[fromsuper(from_type = "BarLifetime1<'static>")]
 struct FooLifetime2 {
     x: u32,
 }
@@ -230,28 +230,28 @@ struct ComplexSub {
 static COMPLEX_C: i16 = -42;
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarComplex<'a, #T, #U, #V, #W>")]
+#[fromsuper(from_type = "BarComplex<'a, #T, #U, #V, #W>")]
 struct FooComplex1 {}
 
 #[derive(FromSuper)]
-#[from_super(from_type = "BarComplex<'a, #T, u8, char, #W>", unpack = "true")]
+#[fromsuper(from_type = "BarComplex<'a, #T, u8, char, #W>", unpack = "true")]
 struct FooComplex2<'a, T: 'static> {
     b: &'a str,
     c: &'static T,
-    #[from_super(no_unpack)]
+    #[fromsuper(no_unpack)]
     d: HashMap<u8, char>,
 }
 
 #[derive(FromSuper)]
-#[from_super(
+#[fromsuper(
     from_type = "BarComplex<'a, #T, #U, char, ComplexSub>",
     unpack = "true"
 )]
 #[derive(Debug)]
 struct FooComplex3<U> {
-    #[from_super(no_unpack)]
+    #[fromsuper(no_unpack)]
     a: u32,
-    #[from_super(no_unpack)]
+    #[fromsuper(no_unpack)]
     d: HashMap<U, char>,
     e: (U, ComplexSub),
 }
