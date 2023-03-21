@@ -6,7 +6,7 @@ authors = ["Christoph Döpmann <dev@christoph.berlin>"]
 license = "MIT OR Apache-2.0"
 
 description = "Macro helpers to derive new sub-structs from existing super-structs, potentially unpacking Options."
-keywords = ["substructs", "superstructs", "sub structs", "super structs", "unpacking", "macros", "proc-macros"]
+keywords = ["substructs", "superstructs", "unpacking", "macros", "proc-macros"]
 categories = ["data-structures", "development-tools", "rust-patterns"]
 
 documentation = "https://docs.rs/fromsuper"
