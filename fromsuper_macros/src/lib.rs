@@ -43,7 +43,7 @@ impl StructReceiver {
         let from_type = &from_type.ty;
 
         // whether to unpack any member
-        let unpack = unpack.unwrap_or(false);
+        let unpack_any = unpack.unwrap_or(false);
 
         // handle generics
         let (_, ty, wher) = generics.split_for_impl();
@@ -69,7 +69,7 @@ impl StructReceiver {
             .expect("Should never be enum")
             .fields;
 
-        return Ok(if unpack {
+        return Ok(if unpack_any {
             // Implement TryFrom
 
             let error_type = format_ident!(
@@ -91,7 +91,7 @@ impl StructReceiver {
                     let span = field_ident.span();
                     let source_ident = field.rename_from.as_ref().unwrap_or(field_ident);
 
-                    if let Some(true) = field.no_unpack {
+                    if let Some(false) = field.unpack {
                         quote!()
                     } else {
                         quote_spanned! {span=>
@@ -110,7 +110,7 @@ impl StructReceiver {
                     let span = field_ident.span();
                     let source_ident = field.rename_from.as_ref().unwrap_or(field_ident);
 
-                    if let Some(true) = field.no_unpack {
+                    if let Some(false) = field.unpack {
                         quote_spanned!(span=> #field_ident: value.#source_ident)
                     } else {
                         quote_spanned!(span=> #field_ident: value.#source_ident.unwrap())
@@ -176,6 +176,17 @@ impl StructReceiver {
         } else {
             // Implement From
 
+            // make sure we're not expected to unpack anything
+            for field in fields.iter() {
+                if let Some(true) = field.unpack {
+                    return Err(
+                        syn::Error::new(
+                            proc_macro2::Span::call_site(), // TODO
+                            "Unpacking single fields requires that the whole struct be unpacked. Consider adding #]fromstruct(unpack = true)] to the struct.")
+                    );
+                }
+            }
+
             let initializers = fields
                 .iter()
                 .map(|field| {
@@ -213,8 +224,8 @@ struct FieldReceiver {
     #[allow(dead_code)]
     ty: syn::Type,
 
-    /// Option to not unwrap or unpack this field.
-    no_unpack: Option<bool>,
+    /// Option to specifically disable unpacking this field.
+    unpack: Option<bool>,
 
     /// Option to take this field's value from a differently-named source field
     rename_from: Option<syn::Ident>,

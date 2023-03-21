@@ -13,7 +13,6 @@ struct Bar {
 #[fromsuper(from_type = "crate::Bar", unpack = true)]
 struct Foo {
     bar: u32,
-    #[fromsuper(no_unpack = false)]
     baz: Option<String>,
 }
 
@@ -238,7 +237,7 @@ struct FooComplex1 {}
 struct FooComplex2<'a, T: 'static> {
     b: &'a str,
     c: &'static T,
-    #[fromsuper(no_unpack)]
+    #[fromsuper(unpack = false)]
     d: HashMap<u8, char>,
 }
 
@@ -249,9 +248,9 @@ struct FooComplex2<'a, T: 'static> {
 )]
 #[derive(Debug)]
 struct FooComplex3<U> {
-    #[fromsuper(no_unpack)]
+    #[fromsuper(unpack = false)]
     a: u32,
-    #[fromsuper(no_unpack)]
+    #[fromsuper(unpack = false)]
     d: HashMap<U, char>,
     e: (U, ComplexSub),
 }
