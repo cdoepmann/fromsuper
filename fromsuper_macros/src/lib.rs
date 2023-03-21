@@ -50,8 +50,9 @@ impl StructReceiver {
 
         // adapt generics of impl block to include type parameters used in the
         // super struct but not in the sub struct
-        let extra_super_tyidents = generics::merge_generics(from_type, generics)?;
         let new_generics = generics::add_types(generics, from_type_params.clone());
+        let extra_lifetimes = generics::collect_extra_lifetimes(from_type, generics)?;
+        let new_generics = generics::add_lifetimes(&new_generics, extra_lifetimes);
         let (imp, _, _) = new_generics.split_for_impl();
 
         // eprintln!("ident: {:?}", ident);

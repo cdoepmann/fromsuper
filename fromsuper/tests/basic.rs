@@ -177,3 +177,34 @@ fn test_generics_mixed_free_and_specific() {
     let foo: FooGenericsMixed2 = bar.into();
     assert_eq!(foo.y[0], 42);
 }
+
+#[derive(Debug, Clone)]
+struct BarLifetime1<'a> {
+    x: u32,
+    y: &'a str,
+}
+
+#[derive(FromSuper)]
+#[from_super(from_type = "BarLifetime1<'a>")]
+struct FooLifetime1<'a> {
+    y: &'a str,
+}
+
+#[derive(FromSuper)]
+#[from_super(from_type = "BarLifetime1<'static>")]
+struct FooLifetime2 {
+    x: u32,
+}
+
+#[test]
+fn test_lifetime() {
+    let s = format!("Test {}", 123);
+    let bar1 = BarLifetime1 { x: 42, y: &s[2..] };
+    let bar2 = BarLifetime1 { x: 53, y: "hello" };
+
+    let foo: FooLifetime1 = bar1.clone().into();
+    assert_eq!(&s[2..], foo.y);
+
+    let foo: FooLifetime2 = bar2.clone().into();
+    assert_eq!(53, foo.x);
+}

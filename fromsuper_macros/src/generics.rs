@@ -2,40 +2,58 @@
 
 use syn::{Generics, Ident, Type};
 
-/// Compute the identifiers of type parameters that are only used in the super
-/// struct, but not in the sub struct.
-pub(crate) fn merge_generics(
+/// Collect the named lifetimes that need to be added to the impl block.
+///
+/// The result may contain duplicates. The `'static` lifetime is ignored.
+/// An error is raised if `'_` (the anonymous lifetime) is found.
+pub(crate) fn collect_extra_lifetimes(
     from_type: &Type,
     subtype_generics: &Generics,
-) -> Result<Vec<Ident>, syn::Error> {
-    let from_tyidents = collect_all_generics(from_type);
+) -> Result<Vec<syn::Lifetime>, syn::Error> {
+    let from_lifetimes = collect_all_lifetimes(from_type);
 
-    let subtype_tyidents = {
+    // forbid '_
+    for lifetime in from_lifetimes.iter() {
+        if lifetime.ident == "_" {
+            return Err(syn::Error::new(
+                lifetime.span(),
+                format!("The anonymous lifetime '_ is not supported."),
+            ));
+        }
+    }
+
+    // ignore 'static
+    let from_lifetimes = from_lifetimes
+        .into_iter()
+        .filter(|x| x.ident != "static")
+        .collect::<Vec<_>>();
+
+    let subtype_lifetimes = {
         let mut idents = Vec::new();
         for x in subtype_generics.params.iter() {
-            if let syn::GenericParam::Type(syn::TypeParam { ident, .. }) = x {
-                idents.push(ident.clone());
+            if let syn::GenericParam::Lifetime(syn::LifetimeDef { lifetime, .. }) = x {
+                idents.push(lifetime.clone());
             }
         }
         idents
     };
 
-    eprintln!("from_tyidents: {:?}", from_tyidents);
-    eprintln!("subtype_tyidents: {:?}", subtype_tyidents);
+    // eprintln!("from_lifetimesy: {:?}", from_lifetimes);
+    // eprintln!("subtype_lifetimes: {:?}", subtype_lifetimes);
 
-    for subtype_tyident in subtype_tyidents.iter() {
-        if !from_tyidents.contains(subtype_tyident) {
+    for subtype_tyident in subtype_lifetimes.iter() {
+        if !from_lifetimes.contains(subtype_tyident) {
             return Err(syn::Error::new(
                 subtype_tyident.span(),
                 format!(
-                    "Type parameter '{}' is unknown from super type, which {}",
+                    "Lifetime parameter '{}' is unknown from super type, which {}",
                     subtype_tyident,
-                    if from_tyidents.len() == 0 {
+                    if from_lifetimes.len() == 0 {
                         "uses none".to_string()
                     } else {
                         format!(
                             "only uses the following: {}",
-                            from_tyidents
+                            from_lifetimes
                                 .iter()
                                 .map(|x| x.to_string())
                                 .collect::<Vec<_>>()
@@ -48,18 +66,18 @@ pub(crate) fn merge_generics(
     }
 
     let mut res = Vec::new();
-    for from_tyident in from_tyidents.into_iter() {
-        if !subtype_tyidents.contains(&from_tyident) {
+    for from_lifetime in from_lifetimes.into_iter() {
+        if !subtype_lifetimes.contains(&from_lifetime) {
             // eprintln!("Type parameter only used in super struct: {}", from_tyident);
-            res.push(from_tyident);
+            res.push(from_lifetime);
         }
     }
 
     Ok(res)
 }
 
-/// Collect the identifiers of all generics/type parameters within a type definition
-fn collect_all_generics(ty: &Type) -> Vec<Ident> {
+/// Collect the identifiers of all lifetime parameters within a type definition
+fn collect_all_lifetimes(ty: &Type) -> Vec<syn::Lifetime> {
     let mut res = Vec::new();
 
     match ty {
@@ -67,13 +85,13 @@ fn collect_all_generics(ty: &Type) -> Vec<Ident> {
         // TODO: trait bounds
         // TODO: trait object
         Type::Array(syn::TypeArray { elem, .. }) => {
-            return collect_all_generics(elem);
+            return collect_all_lifetimes(elem);
         }
         Type::Group(syn::TypeGroup { elem, .. }) => {
-            return collect_all_generics(elem);
+            return collect_all_lifetimes(elem);
         }
         Type::Paren(syn::TypeParen { elem, .. }) => {
-            return collect_all_generics(elem);
+            return collect_all_lifetimes(elem);
         }
         Type::Path(syn::TypePath { path, .. }) => {
             for segment in path.segments.iter() {
@@ -81,9 +99,11 @@ fn collect_all_generics(ty: &Type) -> Vec<Ident> {
                     // here's a generic argument
                     for arg in genargs.args.iter() {
                         match arg {
-                            // TODO: lifetime
                             syn::GenericArgument::Type(inner_ty) => {
-                                res.append(&mut collect_all_generics_from_type_param(inner_ty));
+                                res.append(&mut collect_all_lifetimes(inner_ty));
+                            }
+                            syn::GenericArgument::Lifetime(lifetime) => {
+                                res.push(lifetime.clone());
                             }
                             _ => {}
                         }
@@ -93,86 +113,17 @@ fn collect_all_generics(ty: &Type) -> Vec<Ident> {
             return res;
         }
         Type::Ptr(syn::TypePtr { elem, .. }) => {
-            return collect_all_generics(elem);
+            return collect_all_lifetimes(elem);
         }
         Type::Reference(syn::TypeReference { elem, .. }) => {
-            return collect_all_generics(elem);
+            return collect_all_lifetimes(elem);
         }
         Type::Slice(syn::TypeSlice { elem, .. }) => {
-            return collect_all_generics(elem);
+            return collect_all_lifetimes(elem);
         }
         Type::Tuple(syn::TypeTuple { elems, .. }) => {
             for elem in elems.iter() {
-                res.append(&mut collect_all_generics(elem))
-            }
-            return res;
-        }
-        _ => {
-            return res;
-        }
-    }
-}
-
-/// Extract the generics from a Type that was already a type parameter itself.
-///
-/// Normally, this is just a "T" etc. But if it contains angled brackets itself again,
-/// then we descent into those parameters, e.g. on "Vec<T>".
-///
-/// If there are angled brackets, descent into them, otherwise return the last
-/// path segment identifier.
-fn collect_all_generics_from_type_param(ty: &Type) -> Vec<Ident> {
-    let mut res = Vec::new();
-
-    match ty {
-        // TODO: impl traits
-        // TODO: trait bounds
-        // TODO: trait object
-        Type::Array(syn::TypeArray { elem, .. }) => {
-            return collect_all_generics(elem);
-        }
-        Type::Group(syn::TypeGroup { elem, .. }) => {
-            return collect_all_generics(elem);
-        }
-        Type::Paren(syn::TypeParen { elem, .. }) => {
-            return collect_all_generics(elem);
-        }
-        Type::Path(syn::TypePath { path, .. }) => {
-            let mut descented = false;
-            for segment in path.segments.iter() {
-                if let syn::PathArguments::AngleBracketed(genargs) = &segment.arguments {
-                    descented = true;
-                    // here's a generic argument
-                    for arg in genargs.args.iter() {
-                        match arg {
-                            // TODO: lifetime
-                            syn::GenericArgument::Type(inner_ty) => {
-                                res.append(&mut collect_all_generics_from_type_param(inner_ty));
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-
-            if !descented {
-                if let Some(last) = path.segments.iter().last() {
-                    res.push(last.ident.clone());
-                }
-            }
-            return res;
-        }
-        Type::Ptr(syn::TypePtr { elem, .. }) => {
-            return collect_all_generics(elem);
-        }
-        Type::Reference(syn::TypeReference { elem, .. }) => {
-            return collect_all_generics(elem);
-        }
-        Type::Slice(syn::TypeSlice { elem, .. }) => {
-            return collect_all_generics(elem);
-        }
-        Type::Tuple(syn::TypeTuple { elems, .. }) => {
-            for elem in elems.iter() {
-                res.append(&mut collect_all_generics(elem))
+                res.append(&mut collect_all_lifetimes(elem))
             }
             return res;
         }
@@ -203,6 +154,34 @@ pub(crate) fn add_types(
         }
 
         generics.params.push(syn::GenericParam::Type(ident.into()));
+    }
+
+    generics
+}
+
+/// Given a Generics object, return a new one that has the given lifetime params added to it.
+pub(crate) fn add_lifetimes(
+    generics: &Generics,
+    new_lifetimes: impl IntoIterator<Item = syn::Lifetime>,
+) -> Generics {
+    let mut generics = generics.clone();
+
+    'outer: for lifetime in new_lifetimes {
+        // eprintln!("adding type {}", &ident);
+
+        // avoid adding a duplicate
+        for param in generics.params.iter() {
+            if let syn::GenericParam::Lifetime(existing_lifetime) = param {
+                if existing_lifetime.lifetime.ident == lifetime.ident {
+                    // do not add this type parameter a second time
+                    continue 'outer;
+                }
+            }
+        }
+
+        generics
+            .params
+            .push(syn::GenericParam::Lifetime(syn::LifetimeDef::new(lifetime)));
     }
 
     generics
