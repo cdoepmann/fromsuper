@@ -32,12 +32,23 @@
 //! defining the super struct to convert from:
 //!
 //! ```rust
+//! # use fromsuper::FromSuper;
+//! # use std::collections::HashSet;
+//! # struct ComplexData;
 //! struct Bar {
 //!     a: u32,
 //!     b: String,
 //!     c: HashSet<u64>,
 //!     d: ComplexData,
 //! }
+//! #
+//! # impl Bar {
+//! #   fn new() -> Self {
+//! #     Bar {
+//! #       a: 42, b: "test".to_string(), c: HashSet::new(), d: ComplexData{}
+//! #     }
+//! #   }
+//! # }
 //!
 //! #[derive(FromSuper)]
 //! #[fromsuper(from_type = "Bar")]
@@ -46,7 +57,7 @@
 //!     c: HashSet<u64>,
 //! }
 //!
-//! let bar = Bar { ... };
+//! let bar = Bar::new();
 //! let foo: Foo = bar.into(); // using Foo's derived implementation of From<Bar>
 //! ```
 //!
@@ -54,6 +65,16 @@
 //! the field attribute `rename_from` can be used to specify the mapping:
 //!
 //! ```rust
+//! # use fromsuper::FromSuper;
+//! # use std::collections::HashSet;
+//! # struct ComplexData;
+//! # struct Bar {
+//! #     a: u32,
+//! #     b: String,
+//! #     c: HashSet<u64>,
+//! #     d: ComplexData,
+//! # }
+//! #
 //! #[derive(FromSuper)]
 //! #[fromsuper(from_type = "Bar")]
 //! struct Foo {
@@ -74,12 +95,24 @@
 //! in order to fail when required values are `None`:
 //!
 //! ```rust
+//! # use fromsuper::FromSuper;
+//! # use std::collections::HashSet;
+//! # struct ComplexData;
 //! struct Bar {
 //!     a: Option<u32>,
 //!     b: String,
 //!     c: Option<HashSet<u64>>,
 //!     d: Option<ComplexData>,
+//!     e: Option<u64>
 //! }
+//! #
+//! # impl Bar {
+//! #   fn new() -> Self {
+//! #     Bar {
+//! #       a: Some(42), b: "test".to_string(), c: Some(HashSet::new()), d: Some(ComplexData{}), e: Some(0)
+//! #     }
+//! #   }
+//! # }
 //!
 //! #[derive(FromSuper)]
 //! #[fromsuper(from_type = "Bar", unpack = true)]
@@ -88,10 +121,15 @@
 //!     b: String,
 //!     c: HashSet<u64>,
 //!     d: ComplexData,
+//!     #[fromsuper(unpack = false)]
+//!     e: Option<u64>
 //! }
 //!
-//! let bar = Bar { ... };
+//! # fn main() -> Result<(), <Foo as TryFrom<Bar>>::Error> {
+//! let bar = Bar::new();
 //! let foo: Foo = bar.try_into()?; // using Foo's derived implementation of TryFrom<Bar>
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Generics
@@ -104,6 +142,7 @@
 //! generic type parameters have to be prefixed with a `#` sign:
 //!
 //! ```rust
+//! # use fromsuper::FromSuper;
 //! struct Bar<T, U> {
 //!     x: Vec<T>,
 //!     y: Vec<U>,

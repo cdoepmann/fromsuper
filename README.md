@@ -81,6 +81,7 @@ struct Bar {
     b: String,
     c: Option<HashSet<u64>>,
     d: Option<ComplexData>,
+    e: Option<u64>
 }
 
 #[derive(FromSuper)]
@@ -90,6 +91,8 @@ struct Foo {
     b: String,
     c: HashSet<u64>,
     d: ComplexData,
+    #[fromsuper(unpack = false)]
+    e: Option<u64>
 }
 
 let bar = Bar { ... };
