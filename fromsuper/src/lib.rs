@@ -202,6 +202,7 @@
 /// | ------------- | ------------- | -------- | ------------------ | ------------- |
 /// | `from_type`   | struct        | **yes**  | type specification | The type of the super struct to convert from. Must be enclosed in `"..."`. Can be a local type or fully qualified. Generic type parameters (not concrete types used for instantiation) need to be prefixed with a `#` symbol. |
 /// | `unpack`      | struct        | no       | bool               | Unpack each source field, assuming it is an `Option`. If unpacking is activated, `TryFrom` is implemented instead of `From`. |
+/// | `make_refs`   | struct        | no       | bool               | Instead of moving the field values to the sub struct, make references to the original values. This only really makes sense if `from_type` is a reference type (e.g. `&'a Bar`). |
 /// | `unpack`      | field         | no       | bool               | If false, do not unpack this field. |
 /// | `rename_from` | field         | no       | identifier         | Use a differently-named field as the source from the super struct. |
 pub use fromsuper_macros::FromSuper;
