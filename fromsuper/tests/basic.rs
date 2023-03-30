@@ -286,3 +286,33 @@ fn test_complex() {
     assert_eq!(foo.e.1.x, "hi there");
     assert_eq!(*foo.e.1.y, 1_000_000_000_000);
 }
+
+#[derive(Debug)]
+struct BarRef<T> {
+    a: Option<String>,
+    b: String,
+    #[allow(dead_code)]
+    c: T,
+}
+
+#[derive(Debug, FromSuper)]
+#[fromsuper(from_type = "&'a BarRef<#T>", unpack = true, make_refs = true)]
+struct FooRef1<'a> {
+    a: &'a String,
+    #[fromsuper(unpack = false)]
+    b: &'a String,
+}
+
+#[test]
+fn test_ref() {
+    let bar = BarRef {
+        a: Some("hello".to_string()),
+        b: "world".to_string(),
+        c: 42,
+    };
+    let barref = &bar;
+    let foo: FooRef1 = barref.try_into().unwrap();
+
+    assert_eq!(foo.a, "hello");
+    assert_eq!(foo.b, "world");
+}

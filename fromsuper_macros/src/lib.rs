@@ -26,6 +26,9 @@ struct StructReceiver {
 
     /// Option to specify whether to unpack the single struct members
     unpack: Option<bool>,
+
+    /// Option to specify that the sub struct should only contain references to the super struct
+    make_refs: Option<bool>,
 }
 
 impl StructReceiver {
@@ -37,6 +40,7 @@ impl StructReceiver {
             ref data,
             ref from_type,
             ref unpack,
+            ref make_refs,
         } = *self;
 
         let from_type_params = &from_type.params;
@@ -44,6 +48,9 @@ impl StructReceiver {
 
         // whether to unpack any member
         let unpack_any = unpack.unwrap_or(false);
+
+        // wether to create references instead of moving the values
+        let make_refs = make_refs.unwrap_or(false);
 
         // handle generics
         let (_, ty, wher) = generics.split_for_impl();
@@ -111,9 +118,19 @@ impl StructReceiver {
                     let source_ident = field.rename_from.as_ref().unwrap_or(field_ident);
 
                     if let Some(false) = field.unpack {
-                        quote_spanned!(span=> #field_ident: value.#source_ident)
+                        if make_refs {
+                            quote_spanned!(span=> #field_ident: &value.#source_ident)
+                        }
+                        else {
+                            quote_spanned!(span=> #field_ident: value.#source_ident)
+                        }
                     } else {
-                        quote_spanned!(span=> #field_ident: value.#source_ident.unwrap())
+                        if make_refs {
+                            quote_spanned!(span=> #field_ident: value.#source_ident.as_ref().unwrap())
+                        }
+                        else {
+                            quote_spanned!(span=> #field_ident: value.#source_ident.unwrap())
+                        }
                     }
                 })
                 .collect::<Vec<_>>();

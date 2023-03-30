@@ -133,6 +133,30 @@ for the sub struct, if its fields do not require them.
 Lifetime parameters for both, the super and the sub struct,
 should automatically be handled properly.
 
+## Referencing instead of consuming the super struct
+
+If the super struct can or should not be consumed,
+the derived sub struct can be made to contain only references to the
+original values instead of consuming them.
+This behavior can be activated by using the `make_refs` argument.
+Note that this can only be activated for the whole struct,
+not on a per-field basis.
+
+```rust
+struct Bar {
+    a: Option<String>,
+    b: String,
+}
+
+#[derive(FromSuper)]
+#[fromsuper(from_type = "&'a Bar", unpack = true, make_refs = true)]
+struct Foo<'a> {
+    a: &'a String,
+    #[fromsuper(unpack = false)]
+    b: &'a String,
+}
+ ```
+
 ## Contributions
 
 Since it is hard to predict all possible usage scenarios of the proc macro,
