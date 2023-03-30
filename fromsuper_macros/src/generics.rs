@@ -115,8 +115,12 @@ fn collect_all_lifetimes(ty: &Type) -> Vec<syn::Lifetime> {
         Type::Ptr(syn::TypePtr { elem, .. }) => {
             return collect_all_lifetimes(elem);
         }
-        Type::Reference(syn::TypeReference { elem, .. }) => {
-            return collect_all_lifetimes(elem);
+        Type::Reference(syn::TypeReference { elem, lifetime, .. }) => {
+            let mut lifetimes = collect_all_lifetimes(elem);
+            if let Some(lifetime) = lifetime {
+                lifetimes.push(lifetime.clone());
+            }
+            return lifetimes;
         }
         Type::Slice(syn::TypeSlice { elem, .. }) => {
             return collect_all_lifetimes(elem);
